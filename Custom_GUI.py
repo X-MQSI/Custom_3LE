@@ -6,15 +6,15 @@ This program is a graphical user interface implemented using PyQt,
 mainly used to obtain software running parameters.
 
 Author: BY7030SWL and BG7ZCM
-Date: 2024/02/08
-Version: 0.0.0 beta
+Date: 2024/02/09
+Version: 0.0.0 formal_edition
 LICENSE: GNU General Public License v3.0
 """
 
 import sys
-import ast
 import ctypes
 import subprocess
+import ast
 from configparser import RawConfigParser
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QIcon, QPixmap, QDesktopServices
@@ -28,6 +28,7 @@ Update_button_style = 'QPushButton {background-color: #FFFFFF; color: #000000; b
 Update_choose_button_style = 'QPushButton {background-color: #FFFFFF; color: #6495ED; border: 1px solid #CCCCCC; border-radius: 4px; font-size: 12px;} QPushButton:hover {background-color: #89CFF0;} QPushButton:pressed {background-color:#B6D0E2;}'
 TextEdit_style = 'QPlainTextEdit {background-color: #FFFFFF; color: #3063AB; border: 1px solid #3498db; border-radius: 5px; padding: 1px; font-family: 微软雅黑; font-size: 12px;}'
 
+# 处理配置文件
 config = RawConfigParser()
 config.optionxform = str
 config.read("date.ini")
@@ -44,7 +45,7 @@ class Custom_3LE_GUI(QWidget):
         self.setWindowIcon(icon)
         self.resize(800, 500)
         self.setFixedSize(800, 500)
-        self.setWindowTitle('Custom 3LE By BY7030SWL - Ver 0.0.0')
+        self.setWindowTitle('Custom 3LE By BY7030SWL - Ver 0.0.0 正式版')
         self.setStyleSheet('QWidget { background-color: rgb(223,237,249); }')
         self.setWindowOpacity(0.90)
 
@@ -55,7 +56,7 @@ class Custom_3LE_GUI(QWidget):
         warning = QPixmap('UI/warning.svg')
         error = QPixmap('UI/error.svg')
 
-        # 初始化字典
+        # 初始化状态字典
         self.Status_dict = {
             "Path_selection_pilot_lamp": "waiting",
             "Update_frequency_pilot_lamp": "waiting",
@@ -117,27 +118,32 @@ class Custom_3LE_GUI(QWidget):
         self.Update_frequency_OnLogon_button = QPushButton("自动更新：每次开机时(推荐)", self)
         self.Update_frequency_OnLogon_button.setGeometry(40, 155, 330, 32)
         self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_OnLogon_button.clicked.connect(self.Update_frequency_OnLogon)
+        self.Update_frequency_OnLogon_button.clicked.connect(lambda: self.Update_frequency("OnLogon"))
 
         self.Update_frequency_Daily_button = QPushButton("自动更新：每天一次", self)
         self.Update_frequency_Daily_button.setGeometry(40, 190, 330, 32)
         self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Daily_button.clicked.connect(self.Update_frequency_Daily)
+        self.Update_frequency_Daily_button.clicked.connect(lambda: self.Update_frequency("Daily"))
 
         self.Update_frequency_Weekly_button = QPushButton("自动更新：每周一次", self)
         self.Update_frequency_Weekly_button.setGeometry(40, 225, 330, 32)
         self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Weekly_button.clicked.connect(self.Update_frequency_Weekly)
+        self.Update_frequency_Weekly_button.clicked.connect(lambda: self.Update_frequency("Weekly"))
 
         self.Update_frequency_Monthly_button = QPushButton("自动更新：每月一次", self)
         self.Update_frequency_Monthly_button.setGeometry(40, 260, 330, 32)
         self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Monthly_button.clicked.connect(self.Update_frequency_Monthly)
+        self.Update_frequency_Monthly_button.clicked.connect(lambda: self.Update_frequency("Monthly"))
 
         self.Update_frequency_label = QLabel(self)
         self.Update_frequency_label.setText("您选择的更新方式是：")
         self.Update_frequency_label.move(45, 300)
         self.Update_frequency_label.setStyleSheet(title_style)
+
+        self.Update_frequency_Remove_button = QPushButton("清除", self)
+        self.Update_frequency_Remove_button.setGeometry(205, 298, 50, 27)
+        self.Update_frequency_Remove_button.setStyleSheet(Common_button_style)
+        self.Update_frequency_Remove_button.clicked.connect(lambda: self.Update_frequency("Remove"))
 
         self.Update_frequency_output = QPlainTextEdit(self)
         self.Update_frequency_output.setReadOnly(True)
@@ -187,7 +193,7 @@ class Custom_3LE_GUI(QWidget):
         self.Satellite_NARAD_input_pilot_lamp.move(420, 128)
 
         self.Satellite_NARAD_input_title_label = QLabel(self)
-        self.Satellite_NARAD_input_title_label.setText("请输入目标卫星的编号（每行一个）：")
+        self.Satellite_NARAD_input_title_label.setText("请输入目标卫星的编号 (空格或回车分隔) :")
         self.Satellite_NARAD_input_title_label.move(445, 125)
         self.Satellite_NARAD_input_title_label.setStyleSheet(title_style)
 
@@ -234,28 +240,33 @@ class Custom_3LE_GUI(QWidget):
         self.exit_button.setStyleSheet(Common_button_style)
         self.exit_button.clicked.connect(QApplication.instance().quit)
 
+        self.Configuration_file_processing()
+
+    def Configuration_file_processing(self):
         '''自动选择'''
-        # 全局变量
+        # 设置全局变量
         global save_path, Satellite_Names, User_NORAD_input
         try:
+
             # 获取预置NORAD编号与名称
             Satellite_Names = config.options("NORAD_List")
             User_NORAD_input = []
             if Satellite_Names:
+                # 格式化预存编号
                 self.Satellite_NARAD_output.appendPlainText('\n'.join(Satellite_Names))
+                # 查询对应卫星NORAD编号
                 for satellite_name in Satellite_Names:
                     try:
-                        satellite_value = config.get("NORAD_List", satellite_name)
-                        User_NORAD_input.append(satellite_value)
+                        satellite_NORAD_value = config.get("NORAD_List", satellite_name)
+                        User_NORAD_input.append(satellite_NORAD_value)
                     except Exception as e:
-                        # 处理获取 NORAD_List 中配置值的异常
-                        print(e)
-                self.Satellite_NARAD_input.appendPlainText('\n'.join(User_NORAD_input))
-
+                        print("未获取配置中的NORAD列表：", e)
+                self.Satellite_NARAD_input.appendPlainText(' '.join(User_NORAD_input))
             self.Assembly(User_NORAD_input, Satellite_Names)
 
             # 获取更新路径
             try:
+                # 获取预置存储路径
                 save_path = config.get("Path", "SavePath")
                 self.Path_output.appendPlainText(f"路径：{save_path}")
                 if len(save_path) != 0:
@@ -263,26 +274,17 @@ class Custom_3LE_GUI(QWidget):
                     self.Status_dict["Path_selection_pilot_lamp"] = "correct"
             except Exception as e:
                 # 处理获取 Path 中配置值的异常
-                print(e)
+                print("未获取配置中的存储路径：", e)
 
             # 获取更新频率
             try:
+                # 获取预置更新频率
                 Update_keys = config.get("Update", "Frequency")
-                if Update_keys == 'OnLogon':
-                    self.Update_frequency_OnLogon()
-                elif Update_keys == 'Daily':
-                    self.Update_frequency_Daily()
-                elif Update_keys == 'Weekly':
-                    self.Update_frequency_Weekly()
-                elif Update_keys == 'Monthly':
-                    self.Update_frequency_Monthly()
-                else:
-                    self.Update_frequency_pilot_lamp.setPixmap(error)
-                    self.Status_dict["Update_frequency_pilot_lamp"] = "error"
-                    QMessageBox.warning(self, "错误！", "配置文件配置错误，已忽略错误配置。")
+                print(Update_keys)
+                if Update_keys != 0:
+                    self.Update_frequency(Update_keys)
             except Exception as e:
-                # 处理获取 Update 中配置值的异常
-                print(e)
+                print("未获取配置中的更新频率：", e)
 
         except Exception as e:
             # 处理其他异常
@@ -316,57 +318,56 @@ class Custom_3LE_GUI(QWidget):
     def handle_link_activated(self, link):
         QDesktopServices.openUrl(QUrl(link))
 
-    # 触发器：每次开机时
-    def Update_frequency_OnLogon(self):
-        self.Status_dict["Update_frequency"] = "OnLogon"
+    # 触发器设置
+    def Update_frequency(self, frequency):
+        self.Status_dict["Update_frequency"] = frequency
         self.Update_frequency_output.clear()
-        self.Update_frequency_output.appendPlainText("自动更新：每次开机时")
-        self.Update_frequency_pilot_lamp.setPixmap(correct)
-        self.Status_dict["Update_frequency_pilot_lamp"] = "correct"
-        self.Update_frequency_OnLogon_button.setStyleSheet(Update_choose_button_style)
-        self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
-        QMessageBox.information(self, "更新频率", "星历将在每次开机时自动更新。")
 
-    # 触发器：每天一次
-    def Update_frequency_Daily(self):
-        self.Status_dict["Update_frequency"] = "Daily"
-        self.Update_frequency_output.clear()
-        self.Update_frequency_output.appendPlainText("自动更新：每天一次")
+        if frequency == "OnLogon": 
+            self.Update_frequency_output.appendPlainText("自动更新：每次开机时")
+            QMessageBox.information(self, "更新频率", "星历将在每次开机时自动更新。")
+            self.Update_frequency_OnLogon_button.setStyleSheet(Update_choose_button_style)
+            self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
+        elif frequency == "Daily":
+            self.Update_frequency_output.appendPlainText("自动更新：每天一次")
+            QMessageBox.information(self, "更新频率", "星历将每天自动更新。")
+            self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Daily_button.setStyleSheet(Update_choose_button_style)
+            self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
+        elif frequency == "Weekly":
+            self.Update_frequency_output.appendPlainText("自动更新：每周一次")
+            QMessageBox.information(self, "更新频率", "星历将每周自动更新。")
+            self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Weekly_button.setStyleSheet(Update_choose_button_style)
+            self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
+        elif frequency == "Monthly":
+            self.Update_frequency_output.appendPlainText("自动更新：每月一次")
+            QMessageBox.information(self, "更新频率", "星历将每月自动更新。")
+            self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Monthly_button.setStyleSheet(Update_choose_button_style)
+        elif frequency == "Remove":
+            self.Update_frequency_output.appendPlainText("已清除计划任务。")
+            QMessageBox.information(self, "更新频率", "已清除计划任务，星历将不会自动更新。")
+            self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
+            self.Update_frequency_pilot_lamp.setPixmap(waiting)
+            self.Status_dict["Update_frequency_pilot_lamp"] = "correct"
+        else:
+            self.Update_frequency_pilot_lamp.setPixmap(warning)
+            self.Status_dict["Update_frequency_pilot_lamp"] = "warning"
+            QMessageBox.warning(self, "错误！", f"配置文件配置错误，已忽略错误配置。")
+        
         self.Update_frequency_pilot_lamp.setPixmap(correct)
         self.Status_dict["Update_frequency_pilot_lamp"] = "correct"
-        self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Daily_button.setStyleSheet(Update_choose_button_style)
-        self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
-        QMessageBox.information(self, "更新频率", "星历将每天自动更新。")
 
-    # 触发器：每周一次
-    def Update_frequency_Weekly(self):
-        self.Status_dict["Update_frequency"] = "Weekly"
-        self.Update_frequency_output.clear()
-        self.Update_frequency_output.appendPlainText("自动更新：每周一次")
-        self.Update_frequency_pilot_lamp.setPixmap(correct)
-        self.Status_dict["Update_frequency_pilot_lamp"] = "correct"
-        self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Weekly_button.setStyleSheet(Update_choose_button_style)
-        self.Update_frequency_Monthly_button.setStyleSheet(Update_button_style)
-        QMessageBox.information(self, "更新频率", "星历每个周将自动更新。")
-
-    # 触发器：每月一次
-    def Update_frequency_Monthly(self):
-        self.Status_dict["Update_frequency"] = "Monthly"
-        self.Update_frequency_output.clear()
-        self.Update_frequency_output.appendPlainText("自动更新：每月一次")
-        self.Update_frequency_pilot_lamp.setPixmap(correct)
-        self.Status_dict["Update_frequency_pilot_lamp"] = "correct"
-        self.Update_frequency_OnLogon_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Daily_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Weekly_button.setStyleSheet(Update_button_style)
-        self.Update_frequency_Monthly_button.setStyleSheet(Update_choose_button_style)
-        QMessageBox.information(self, "更新频率", "星历每个月将自动更新。")
 
     # NORAD 编号与卫星名称对应
     def Assembly(self, User_NORAD_input, Satellite_Names):
@@ -374,37 +375,59 @@ class Custom_3LE_GUI(QWidget):
         Satellite_output_dict = {str(satellite_name): int(norad) for norad, satellite_name in mapping_dict.items()}
         self.Status_dict["Satellite_output"] = Satellite_output_dict
 
-    # 传参到Query程序进行查询
     def NORAD_Query(self):
-        NORAD_ID = self.Satellite_NARAD_input.toPlainText()
-        try:
-            User_NORAD_input = NORAD_ID.strip().splitlines()
-            User_NORAD_input = [int(item) for item in User_NORAD_input]
+        # 检查是否已选择存储路径，避免查询程序崩溃
+        path_selection_state = self.Status_dict.get("Path_selection_pilot_lamp", "waiting")
+        if path_selection_state != 'correct':
+            QMessageBox.information(self, "提示：", "您还没有选择有效保存路径！")
+            self.Path_selection()
+            return
 
+        try:
+            # 解析格式化为数组，供存储至配置文件使用
+            NORAD_ID = self.Satellite_NARAD_input.toPlainText()
             lines = NORAD_ID.strip().split('\n')
-            NORAD_ID = ' '.join(lines)
-            if len(NORAD_ID) != 0:
-                command = f"Custom_Query.exe {NORAD_ID}"
-                QMessageBox.information(self, "提示：", "正在查询验证，程序可能会无响应，请耐心等待。\n\n读到这行文字，你就可以关闭这个提示窗口了。")
-    
+            print(lines)
+
+            # 逐行解析，去重
+            User_NORAD_input = []
+            seen = set()
+            for line in lines:
+                numbers = line.strip().split()
+                unique_numbers = [int(num) for num in numbers if num not in seen and not seen.add(num)]
+                User_NORAD_input.extend(unique_numbers)
+
+            self.Satellite_NARAD_input.clear()
+            self.Satellite_NARAD_input.appendPlainText(' '.join(map(str, User_NORAD_input)))
+
+            # 传参，进行查询
+            if User_NORAD_input:
+                # 构造查询命令
+                command = f"Custom_Query.exe {' '.join(map(str, User_NORAD_input))}"
+                QMessageBox.information(self, "提示：", "正在查询验证，程序可能会无响应，请耐心等待。\n\n读到这行文字，你就可以关闭这个提示窗口了.")
+
                 try:
+                    # 执行命令，开始查询
                     Satellite_Names = subprocess.run(command, shell=True, capture_output=True, text=True)
                 except Exception as e:
-                    QMessageBox.critical(self, "致命错误！", f"请检查程序完整性！\n{e}")
-                print("Satellite_Names:", Satellite_Names)
+                    QMessageBox.critical(self, "致命错误！", f"查询失败，请检查程序完整性！\n{e}")
+                    return
+
+                # 提取返回数据
                 Satellite_Names = Satellite_Names.stdout.strip()
-                print("Satellite_Names:", Satellite_Names)
-                Satellite_Names = ast.literal_eval(Satellite_Names)
-    
+                print(Satellite_Names)
+
+                # 处理返回数据
                 if "#*Error*#" in Satellite_Names or len(Satellite_Names) == 0:
                     # 获取错误信息
                     error_message = Satellite_Names
                     if len(Satellite_Names) == 0:
-                        error_message = "未获得返回，请检查程序完整性！"
+                        error_message = "未获得返回数据，查询查询可能故障。"
                     QMessageBox.critical(self, "查询错误", f"查询过程中发生错误：{error_message}")
                     self.Satellite_NARAD_input_pilot_lamp.setPixmap(error)
                     self.Status_dict["Satellite_NARAD_input_pilot_lamp"] = "error"
                 else:
+                    Satellite_Names = ast.literal_eval(Satellite_Names)
                     self.Satellite_NARAD_input_pilot_lamp.setPixmap(correct)
                     self.Status_dict["Satellite_NARAD_input_pilot_lamp"] = "correct"
                     self.Satellite_NARAD_output.clear()
@@ -415,11 +438,14 @@ class Custom_3LE_GUI(QWidget):
                 self.Satellite_NARAD_input_pilot_lamp.setPixmap(warning)
                 self.Status_dict["Satellite_NARAD_input_pilot_lamp"] = "warning"
                 QMessageBox.information(self, "提示：", "您还没有输入卫星的NORAD编号！")
+
         except Exception as e:
             self.Satellite_NARAD_input_pilot_lamp.setPixmap(error)
             self.Status_dict["Satellite_NARAD_input_pilot_lamp"] = "error"
-            NORAD_ID == ''
-            QMessageBox.warning(self, "错误", f"格式化失败，请检查您的输入！\n{e}")
+            NORAD_ID = ''
+            QMessageBox.warning(self, "错误", f"解析查询时发现问题，请检查您的输或程序完整性入！\n{e}")
+
+
 
     # 点击打开常用业余卫星窗口
     def Commonly_used_satellites(self):
@@ -465,17 +491,19 @@ class Custom_3LE_GUI(QWidget):
             except Exception as e:
                 self.Status_dict["Path_selection_pilot_lamp"] = "error"
                 QMessageBox.critical(self, "错误", f"存储信息到配置文件失败！\n{e}")
-
+                return
 
             # 设置计划任务
             try:
-                command = f"Task_Scheduler.bat {Update_frequency}"
+                powershell_command = 'Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force'
+                subprocess.run(['powershell', '-Command', powershell_command], check=True)
+                command = f"powershell.exe ./Task_Scheduler.ps1 {Update_frequency}"
                 subprocess.run(command, shell=True)
             except Exception as e:
                 self.Update_frequency_pilot_lamp.setPixmap(error)
                 self.Status_dict["Update_frequency_pilot_lamp"] = "error"
                 QMessageBox.critical(self, "错误", f"添加到计划任务时发生错误：{e}")
-                print(e)
+                return
 
             QMessageBox.information(self, "感谢使用", "所有操作已完成，配置已存储！")
             sys.exit()
